@@ -19,7 +19,12 @@ namespace AnimationInstancing
         struct CreateAnimationRequest 
         {
             public GameObject prefab;
-            public AnimationInstancing instance;
+            // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+            //public AnimationInstancing instance;
+            // -----
+            // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+            public AnimationInstancingObject instanceObj;
+            // +++++
         }
         // A container to storage all animations info within game object
         public class InstanceAnimationInfo 
@@ -57,7 +62,12 @@ namespace AnimationInstancing
             m_requestList.Clear();
         }
 
-        public InstanceAnimationInfo FindAnimationInfo(GameObject prefab, AnimationInstancing instance)
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+        //public InstanceAnimationInfo FindAnimationInfo(GameObject prefab, AnimationInstancing instance)
+        // -----
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+        public InstanceAnimationInfo FindAnimationInfo(GameObject prefab, AnimationInstancingObject instanceObj)
+        // +++++
         {
             Debug.Assert(prefab != null);
             InstanceAnimationInfo info = null;
@@ -75,7 +85,12 @@ namespace AnimationInstancing
             {
                 CreateAnimationRequest request = new CreateAnimationRequest();
                 request.prefab = prefab;
-                request.instance = instance;
+                // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+                //request.instance = instance;
+                // -----
+                // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+                request.instanceObj = instanceObj;
+                // +++++
                 if (m_mainBundle != null)
                 {
                     StartCoroutine(LoadAnimationInfoFromAssetBundle(request));
@@ -122,7 +137,12 @@ namespace AnimationInstancing
             if (m_animationInfo.TryGetValue(request.prefab, out info))
             {
                 find = true;
-                request.instance.Prepare(info.listAniInfo, info.extraBoneInfo);
+                // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+                //request.instance.Prepare(info.listAniInfo, info.extraBoneInfo);
+                // -----
+                // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+                request.instanceObj.Prepare(info.listAniInfo, info.extraBoneInfo);
+                // +++++
             }
 
 			if (abRequest != null && !find)
@@ -133,7 +153,12 @@ namespace AnimationInstancing
                 info.listAniInfo = ReadAnimationInfo(reader);
                 info.extraBoneInfo = ReadExtraBoneInfo(reader);
                 AnimationInstancingMgr.Instance.ImportAnimationTexture(request.prefab.name, reader);
-                request.instance.Prepare(info.listAniInfo, info.extraBoneInfo);
+                // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+                //request.instance.Prepare(info.listAniInfo, info.extraBoneInfo);
+                // -----
+                // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+                request.instanceObj.Prepare(info.listAniInfo, info.extraBoneInfo);
+                // +++++
                 m_animationInfo.Add(request.prefab, info);
             }
         }

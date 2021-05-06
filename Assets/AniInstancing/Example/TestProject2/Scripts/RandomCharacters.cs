@@ -19,9 +19,11 @@ public class RandomCharacters : MonoBehaviour {
 	private float SpeedDampTime = .25f;	
 	private float DirectionDampTime = .25f;	
 	private Vector3 TargetPosition = new Vector3(0,0,0);
-	
-	// Use this for initialization
-	void Start () 
+
+    // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+    /*
+    // Use this for initialization
+    void Start () 
 	{
         if (!AnimationInstancing.AnimationInstancingMgr.Instance.UseInstancing)
         {
@@ -120,4 +122,6 @@ public class RandomCharacters : MonoBehaviour {
             }
         }
     }
+    */
+    // -----
 }

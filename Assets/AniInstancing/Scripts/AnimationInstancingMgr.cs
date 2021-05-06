@@ -48,8 +48,10 @@ namespace AnimationInstancing
             public int nameCode;
             public Mesh mesh = null;
             public Dictionary<int, MaterialBlock> instanceBlockList;
-            public Vector4[] weight;
-            public Vector4[] boneIndex;
+            // [Unity] Remove uv2, color channels -----
+            //public Vector4[] weight;
+            //public Vector4[] boneIndex;
+            // -----
             public Material[] materials = null;
             public Matrix4x4[] bindPose;
             public Transform[] bonePose;
@@ -70,7 +72,21 @@ namespace AnimationInstancing
         }
 
         // all object used animation instancing
-        List<AnimationInstancing> aniInstancingList;
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+        //List<AnimationInstancing> aniInstancingList;
+        // -----
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+        List<AnimationInstancingObject> aniInstancingObjList;
+        // +++++
+        // [Unity] Fix test functionality(RandomCharacters) +++++
+        public List<AnimationInstancingObject> AniInstancingObjList
+        {
+            get
+            {
+                return aniInstancingObjList;
+            }
+        }
+        // +++++
         // to calculate lod level
         private Transform cameraTransform; 
         private Dictionary<int, VertexCache> vertexCachePool;
@@ -106,7 +122,12 @@ namespace AnimationInstancing
             boundingSphere = new BoundingSphere[5000];
             InitializeCullingGroup();
             cameraTransform = Camera.main.transform;
-            aniInstancingList = new List<AnimationInstancing>(1000);
+            // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+            //aniInstancingList = new List<AnimationInstancing>(1000);
+            // -----
+            // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+            aniInstancingObjList = new List<AnimationInstancingObject>(1000);
+            // +++++
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.OpenGLES2)
             {
                 instancingPackageSize = 1;
@@ -216,13 +237,20 @@ namespace AnimationInstancing
 
         public void Clear()
         {
-            aniInstancingList.Clear();
+            // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+            //aniInstancingList.Clear();
+            // -----
+            // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+            aniInstancingObjList.Clear();
+            // +++++
             cullingGroup.Dispose();
             vertexCachePool.Clear();
             instanceDataPool.Clear();
             InitializeCullingGroup();
         }
 
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+        /*
         public GameObject CreateInstance(GameObject prefab)
         {
             Debug.Assert(prefab != null);
@@ -232,7 +260,11 @@ namespace AnimationInstancing
             script.prototype = prototypeScript.prototype;
             return obj;
         }
+        */
+        // -----
 
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+        /*
         public void AddInstance(GameObject obj)
         {
             AnimationInstancing script = obj.GetComponent<AnimationInstancing>();
@@ -273,6 +305,40 @@ namespace AnimationInstancing
                 }
             }
         }
+        */
+        // -----
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+        public void AddInstance(AnimationInstancingObject instanceObj)
+        {
+            try
+            {
+                bool success = instanceObj.InitializeAnimation();
+                if (success)
+                    aniInstancingObjList.Add(instanceObj);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(e.Message);
+                Debug.Log("Initialize animation failed. Please check out the backed animation infos and regenerate it.");
+            }
+        }
+
+        public void RemoveInstance(AnimationInstancingObject instanceObj)
+        {
+            Debug.Assert(aniInstancingObjList != null);
+            bool removed = aniInstancingObjList.Remove(instanceObj);
+            if (removed)
+            {
+                --usedBoundingSphereCount;
+                cullingGroup.SetBoundingSphereCount(usedBoundingSphereCount);
+                Debug.Assert(usedBoundingSphereCount >= 0);
+                if (usedBoundingSphereCount < 0)
+                {
+                    Debug.DebugBreak();
+                }
+            }
+        }
+        // +++++
 
         void OnDisable()
         {
@@ -313,7 +379,9 @@ namespace AnimationInstancing
                 
             }
         }
-       
+
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+        /*
         void ApplyBoneMatrix()
         {
             Vector3 cameraPosition = cameraTransform.position;
@@ -420,7 +488,6 @@ namespace AnimationInstancing
             }
         }
 
-
         private void ApplyRootMotion(AnimationInstancing instance)
         {
             AnimationInfo info = instance.GetCurrentAnimationInfo();
@@ -455,6 +522,131 @@ namespace AnimationInstancing
 #endif
             }
         }
+        */
+        // -----
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+        void ApplyBoneMatrix()
+        {
+            Vector3 cameraPosition = cameraTransform.position;
+            for (int i = 0; i != aniInstancingObjList.Count; ++i)
+            {
+                AnimationInstancingObject instanceObj = aniInstancingObjList[i];
+                if (!instanceObj.IsPlaying())
+                    continue;
+
+                if (instanceObj.applyRootMotion)
+                    ApplyRootMotion(instanceObj);
+
+                instanceObj.UpdateAnimation();
+                instanceObj.boundingSpere.position = instanceObj.position;
+                boundingSphere[i] = instanceObj.boundingSpere;
+
+                if (!instanceObj.visible)
+                    continue;
+                instanceObj.UpdateLod(cameraPosition);
+
+                AnimationInstancing.LodInfo lod = instanceObj.lodInfo[instanceObj.lodLevel];
+                int aniTextureIndex = instanceObj.aniTextureIndex;
+
+                for (int j = 0; j != lod.vertexCacheList.Length; ++j)
+                {
+                    VertexCache cache = lod.vertexCacheList[j];
+                    MaterialBlock block = lod.materialBlockList[j];
+                    Debug.Assert(block != null);
+                    int packageIndex = block.runtimePackageIndex[aniTextureIndex];
+                    Debug.Assert(packageIndex < block.packageList[aniTextureIndex].Count);
+                    InstancingPackage package = block.packageList[aniTextureIndex][packageIndex];
+                    if (package.instancingCount + 1 > instancingPackageSize)
+                    {
+                        ++block.runtimePackageIndex[aniTextureIndex];
+                        packageIndex = block.runtimePackageIndex[aniTextureIndex];
+                        if (packageIndex >= block.packageList[aniTextureIndex].Count)
+                        {
+                            InstancingPackage newPackage = CreatePackage(block.instanceData,
+                                cache.mesh,
+                                cache.materials,
+                                aniTextureIndex);
+                            block.packageList[aniTextureIndex].Add(newPackage);
+                            PreparePackageMaterial(newPackage, cache, aniTextureIndex);
+                            newPackage.instancingCount = 1;
+                        }
+                        block.packageList[aniTextureIndex][packageIndex].instancingCount = 1;
+                    }
+                    else
+                        ++package.instancingCount;
+
+                    {
+                        VertexCache vertexCache = cache;
+                        InstanceData data = block.instanceData;
+                        int index = block.runtimePackageIndex[aniTextureIndex];
+                        InstancingPackage pkg = block.packageList[aniTextureIndex][index];
+                        int count = pkg.instancingCount - 1;
+                        if (count >= 0)
+                        {
+                            Matrix4x4 worldMat = instanceObj.localToWorldMatrix;
+                            Matrix4x4[] arrayMat = data.worldMatrix[aniTextureIndex][index];
+                            arrayMat[count].m00 = worldMat.m00;
+                            arrayMat[count].m01 = worldMat.m01;
+                            arrayMat[count].m02 = worldMat.m02;
+                            arrayMat[count].m03 = worldMat.m03;
+                            arrayMat[count].m10 = worldMat.m10;
+                            arrayMat[count].m11 = worldMat.m11;
+                            arrayMat[count].m12 = worldMat.m12;
+                            arrayMat[count].m13 = worldMat.m13;
+                            arrayMat[count].m20 = worldMat.m20;
+                            arrayMat[count].m21 = worldMat.m21;
+                            arrayMat[count].m22 = worldMat.m22;
+                            arrayMat[count].m23 = worldMat.m23;
+                            arrayMat[count].m30 = worldMat.m30;
+                            arrayMat[count].m31 = worldMat.m31;
+                            arrayMat[count].m32 = worldMat.m32;
+                            arrayMat[count].m33 = worldMat.m33;
+
+                            float frameIndex = 0, preFrameIndex = -1, transition = 0f;
+                            frameIndex = instanceObj.aniInfo[instanceObj.aniIndex].animationIndex + instanceObj.curFrame;
+                            if (instanceObj.preAniIndex >= 0)
+                                preFrameIndex = instanceObj.aniInfo[instanceObj.preAniIndex].animationIndex + instanceObj.preAniFrame;
+                            transition = instanceObj.transitionProgress;
+
+                            data.frameIndex[aniTextureIndex][index][count] = frameIndex;
+                            data.preFrameIndex[aniTextureIndex][index][count] = preFrameIndex;
+                            data.transitionProgress[aniTextureIndex][index][count] = transition;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void ApplyRootMotion(AnimationInstancingObject instanceObj)
+        {
+            AnimationInfo info = instanceObj.GetCurrentAnimationInfo();
+            if (info == null || !info.rootMotion)
+                return;
+
+            int preSampleFrame = (int)instanceObj.curFrame;
+            int nextSampleFrame = (int)(instanceObj.curFrame + 1.0f);
+            if (nextSampleFrame >= info.totalFrame)
+                return;
+
+            Vector3 preVelocity = info.velocity[preSampleFrame];
+            Vector3 nextVelocity = info.velocity[nextSampleFrame];
+            Vector3 velocity = Vector3.Lerp(preVelocity, nextVelocity, instanceObj.curFrame - preSampleFrame);
+            Vector3 angularVelocity = Vector3.Lerp(info.angularVelocity[preSampleFrame], info.angularVelocity[nextSampleFrame], instanceObj.curFrame - preSampleFrame);
+
+            {
+                Quaternion localQuaternion = instanceObj.localRotation;
+                Quaternion delta = Quaternion.Euler(angularVelocity * Time.deltaTime);
+                localQuaternion = localQuaternion * delta;
+
+                Vector3 offset = velocity * Time.deltaTime;
+                offset = localQuaternion * offset;
+                //offset.y = 0.0f;
+                Vector3 localPosition = instanceObj.localPosition;
+                localPosition += offset;
+                instanceObj.SetPositionAndRotation(localPosition, localQuaternion);
+            }
+        }
+        // +++++
 
         private int FindTexture_internal(string name)
         {
@@ -613,7 +805,9 @@ namespace AnimationInstancing
             AnimationInstancing.LodInfo[] lodInfo,
             Transform[] bones,
             List<Matrix4x4> bindPose,
-            int bonePerVertex,
+            // [Unity] Remove uv2, color channels -----
+            //int bonePerVertex,
+            // -----
             string alias = null)
         {
             UnityEngine.Profiling.Profiler.BeginSample("AddMeshVertex()");
@@ -646,7 +840,12 @@ namespace AnimationInstancing
                     vertexCache.bindPose = bindPose.ToArray();
                     MaterialBlock matBlock = CreateBlock(vertexCache, lod.skinnedMeshRenderer[i].sharedMaterials);
                     vertexCache.instanceBlockList.Add(identify, matBlock);
-                    SetupVertexCache(vertexCache, matBlock, lod.skinnedMeshRenderer[i], bones, bonePerVertex);
+                    // [Unity] Remove uv2, color channels -----
+                    //SetupVertexCache(vertexCache, matBlock, lod.skinnedMeshRenderer[i], bones, bonePerVertex);
+                    // -----
+                    // [Unity] Remove uv2, color channels +++++
+                    SetupVertexCache(vertexCache, matBlock, lod.skinnedMeshRenderer[i], bones);
+                    // +++++
                     lod.vertexCacheList[i] = vertexCache;
                     lod.materialBlockList[i] = matBlock;
                 }
@@ -679,7 +878,12 @@ namespace AnimationInstancing
                         vertexCache.bindPose = bindPose.ToArray();
                     MaterialBlock matBlock = CreateBlock(vertexCache, lod.meshRenderer[i].sharedMaterials);
                     vertexCache.instanceBlockList.Add(identify, matBlock);
-                    SetupVertexCache(vertexCache, matBlock, lod.meshRenderer[i], m, bones, bonePerVertex);
+                    // [Unity] Remove uv2, color channels -----
+                    //SetupVertexCache(vertexCache, matBlock, lod.meshRenderer[i], m, bones, bonePerVertex);
+                    // -----
+                    // [Unity] Remove uv2, color channels +++++
+                    SetupVertexCache(vertexCache, matBlock, lod.meshRenderer[i], m, bones);
+                    // +++++
                     lod.vertexCacheList[lod.skinnedMeshRenderer.Length + i] = vertexCache;
                     lod.materialBlockList[lod.skinnedMeshRenderer.Length + i] = matBlock;
                 }
@@ -729,8 +933,10 @@ namespace AnimationInstancing
             vertexCache.nameCode = cacheName;
             vertexCache.mesh = mesh;
             vertexCache.boneTextureIndex = FindTexture_internal(prefabName);
-            vertexCache.weight = new Vector4[mesh.vertexCount];
-            vertexCache.boneIndex = new Vector4[mesh.vertexCount];
+            // [Unity] Remove uv2, color channels -----
+            //vertexCache.weight = new Vector4[mesh.vertexCount];
+            //vertexCache.boneIndex = new Vector4[mesh.vertexCount];
+            // -----
             int packageCount = GetPackageCount(vertexCache);
             InstanceData data = null;
             int instanceName = prefabName.GetHashCode() + alias;
@@ -742,12 +948,20 @@ namespace AnimationInstancing
             vertexCache.instanceBlockList = new Dictionary<int, MaterialBlock>();
             return vertexCache;
         }
+
         private void SetupVertexCache(VertexCache vertexCache,
             MaterialBlock block,
             SkinnedMeshRenderer render,
-            Transform[] boneTransform,
-            int bonePerVertex)
+            // [Unity] Remove uv2, color channels -----
+            //Transform[] boneTransform,
+            //int bonePerVertex)
+            // -----
+            // [Unity] Remove uv2, color channels +++++
+            Transform[] boneTransform)
+            // +++++
         {
+            // [Unity] Remove uv2, color channels -----
+            /*
             int[] boneIndex = null;
             if (render.bones.Length != boneTransform.Length)
             {
@@ -834,10 +1048,13 @@ namespace AnimationInstancing
                 }
             }
             UnityEngine.Profiling.Profiler.EndSample();
+            */
+            // -----
 
             if (vertexCache.materials == null)
                 vertexCache.materials = render.sharedMaterials;
-            SetupAdditionalData(vertexCache);
+            // [Unity] Remove uv2, color channels
+            //SetupAdditionalData(vertexCache); 
             for (int i = 0; i != block.packageList.Length; ++i)
             {
                 InstancingPackage package = CreatePackage(block.instanceData, vertexCache.mesh, render.sharedMaterials, i);
@@ -847,13 +1064,17 @@ namespace AnimationInstancing
             }
         }
 
-
         private void SetupVertexCache(VertexCache vertexCache,
             MaterialBlock block,
             MeshRenderer render,
             Mesh mesh,
-            Transform[] boneTransform,
-            int bonePerVertex)
+            // [Unity] Remove uv2, color channels -----
+            //Transform[] boneTransform,
+            //int bonePerVertex)
+            // -----
+            // [Unity] Remove uv2, color channels +++++
+            Transform[] boneTransform)
+            // +++++
         {
             int boneIndex = -1;
             if (boneTransform != null)
@@ -874,7 +1095,8 @@ namespace AnimationInstancing
             }
             if (vertexCache.materials == null)
                 vertexCache.materials = render.sharedMaterials;
-            SetupAdditionalData(vertexCache);
+            // [Unity] Remove uv2, color channels
+            //SetupAdditionalData(vertexCache);
             for (int i = 0; i != block.packageList.Length; ++i)
             {
                 InstancingPackage package = CreatePackage(block.instanceData, vertexCache.mesh, render.sharedMaterials, i);
@@ -883,7 +1105,8 @@ namespace AnimationInstancing
             }
         }
 
-
+        // [Unity] Remove uv2, color channels
+        /*
         public void SetupAdditionalData(VertexCache vertexCache)
         {
             Color[] colors = new Color[vertexCache.weight.Length];            
@@ -904,6 +1127,7 @@ namespace AnimationInstancing
             vertexCache.mesh.SetUVs(2, uv2);
             vertexCache.mesh.UploadMeshData(false);
         }
+        */
 
         public void PreparePackageMaterial(InstancingPackage package, VertexCache vertexCache, int aniTextureIndex)
         {
@@ -921,14 +1145,14 @@ namespace AnimationInstancing
             }
         }
 
-
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+        /*
         public void AddBoundingSphere(AnimationInstancing instance)
         {
             boundingSphere[usedBoundingSphereCount++] = instance.boundingSpere;
             cullingGroup.SetBoundingSphereCount(usedBoundingSphereCount);
             instance.visible = cullingGroup.IsVisible(usedBoundingSphereCount - 1);
         }
-
 
         private void CullingStateChanged(CullingGroupEvent evt)
         {
@@ -947,7 +1171,31 @@ namespace AnimationInstancing
                 aniInstancingList[evt.index].visible = false;
             }
         }
+        */
+        // -----
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+        public void AddBoundingSphere(AnimationInstancingObject instanceObj)
+        {
+            boundingSphere[usedBoundingSphereCount++] = instanceObj.boundingSpere;
+            cullingGroup.SetBoundingSphereCount(usedBoundingSphereCount);
+            instanceObj.visible = cullingGroup.IsVisible(usedBoundingSphereCount - 1);
+        }
 
+        private void CullingStateChanged(CullingGroupEvent evt)
+        {
+            Debug.Assert(evt.index < usedBoundingSphereCount);
+            if (evt.hasBecomeVisible)
+            {
+                Debug.Assert(evt.index < aniInstancingObjList.Count);
+                aniInstancingObjList[evt.index].visible = true;
+            }
+            if (evt.hasBecomeInvisible)
+            {
+                Debug.Assert(evt.index < aniInstancingObjList.Count);
+                aniInstancingObjList[evt.index].visible = false;
+            }
+        }
+        // +++++
 
         public void BindAttachment(VertexCache parentCache, VertexCache attachmentCache, Mesh sharedMesh, int boneIndex)
         {
@@ -963,6 +1211,8 @@ namespace AnimationInstancing
             }
             attachmentCache.mesh.vertices = vertices;
 
+            // [Unity] Remove uv2, color channels -----
+            /*
             for (int j = 0; j != attachmentCache.mesh.vertexCount; ++j)
             {
                 attachmentCache.weight[j].x = 1.0f;
@@ -971,6 +1221,8 @@ namespace AnimationInstancing
                 attachmentCache.weight[j].w = -0.1f;
                 attachmentCache.boneIndex[j].x = boneIndex;
             }
+            */
+            // -----
         }
     }
 }

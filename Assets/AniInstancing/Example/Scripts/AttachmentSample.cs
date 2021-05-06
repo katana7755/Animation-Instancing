@@ -6,6 +6,9 @@ public class AttachmentSample : MonoBehaviour
 {
 	public GameObject attachment = null;
 	private bool initialize = false;
+
+	// [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+	/*
 	void Update()
 	{
 		// the attaching should be after the master's initialize, so we put it in the first update.
@@ -14,7 +17,7 @@ public class AttachmentSample : MonoBehaviour
 			initialize = true;
 			AnimationInstancing.AnimationInstancing instance = GetComponent<AnimationInstancing.AnimationInstancing>();
 			if (instance)
-            {  
+            {
 				int count = instance.GetAnimationCount();
 				instance.PlayAnimation(Random.Range(0, count));
                 AnimationInstancing.AnimationInstancing attachmentScript = attachment.GetComponent<AnimationInstancing.AnimationInstancing>();
@@ -22,7 +25,9 @@ public class AttachmentSample : MonoBehaviour
 
 				// Deattach the attachment
 				// instance.Deattach(attachmentScript);
-			}						
+			}
 		}
 	}
+	*/
+	// -----
 }

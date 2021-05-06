@@ -15,6 +15,8 @@ namespace AnimationInstancing
         private ArrayList m_objs;
         private bool m_useInstancing = false;
 
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+        /*
         private void OnEnable()
         {
             LoadAB();
@@ -171,5 +173,7 @@ namespace AnimationInstancing
 
             script.Deattach(attachment);
         }
+        */
+        // -----
     }
 }

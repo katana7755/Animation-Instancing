@@ -3,14 +3,19 @@ using System.Collections;
 using System.Collections.Generic;
 
 public class Spawner: MonoBehaviour {
-
+    // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+    public AnimationInstancing.AnimationInstancing animationInstancingPrefab;
+    // +++++
     public GameObject prefabA;
     public GameObject prefabB;
     static int count = 0;
     static float lastTime = 0;
     public int showCount = 0;
+    public float spawnInterval = 1f;
 
-    List<GameObject> objList;
+    // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+    //List<GameObject> objList;
+    // -----
 	void OnGUI()
 	{
 		GUILayout.Label(string.Format("Spawns up to {0} characters, current {1}", showCount, count));
@@ -35,7 +40,9 @@ public class Spawner: MonoBehaviour {
     void Start()
     {
         lastTime = Time.time;
-        objList = new List<GameObject>();
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+        //objList = new List<GameObject>();
+        // -----
         LoadAB();
 		AnimationInstancing.AnimationInstancingMgr.Instance.UseInstancing = true;
     }
@@ -48,13 +55,19 @@ public class Spawner: MonoBehaviour {
 
     void Clear()
     {
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+        /*
         foreach (var obj in objList)
         {
             Destroy(obj);
         }
+        */
+        // -----
         AnimationInstancing.AnimationInstancingMgr.Instance.Clear();
 
-        objList.Clear();
+        // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+        //objList.Clear();
+        // -----
         count = 0;
     }
 
@@ -64,10 +77,12 @@ public class Spawner: MonoBehaviour {
         {
             bool alt = Input.GetButton("Fire1");
 
-            if (Time.time - lastTime > 0.1f)
+            if (Time.time - lastTime > spawnInterval)
             {
                 if (AnimationInstancing.AnimationInstancingMgr.Instance.UseInstancing)
                 {
+                    // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+                    /*
                     if (prefabA != null)
                     {
                         GameObject obj = AnimationInstancing.AnimationInstancingMgr.Instance.CreateInstance(prefabA);
@@ -76,6 +91,14 @@ public class Spawner: MonoBehaviour {
                         //obj.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
                         //obj.GetComponent<AnimationInstancing.AnimationInstancing>().PlayAnimation(Random.Range(0, 2));
                     }
+                    */
+                    // -----
+                    // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
+                    if (animationInstancingPrefab != null)
+                    {
+                        animationInstancingPrefab.CreateInstanceObject(null);
+                    }
+                    // +++++
                 }
                 else
                 {
@@ -85,7 +108,9 @@ public class Spawner: MonoBehaviour {
                     if (prefabB != null && alt)
                         obj = Instantiate(prefabA, new Vector3(0, 0, 0), Quaternion.Euler(0, 0, 0));
                     obj.SetActive(true);
-                    objList.Add(obj);
+                    // [Unity] Replace AnimationInstancing GameObjects with normal class objects -----
+                    //objList.Add(obj);
+                    // -----
                 }
                 
                 lastTime = Time.time;

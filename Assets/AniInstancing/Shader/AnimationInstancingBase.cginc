@@ -1,7 +1,9 @@
-﻿#ifndef ANIMATION_INSTANCING_BASE
+﻿// Upgrade NOTE: upgraded instancing buffer 'Props' to new syntax.
+
+#ifndef ANIMATION_INSTANCING_BASE
 #define ANIMATION_INSTANCING_BASE
 
-//#pragma target 3.0
+#pragma target 3.0
 
 sampler2D _boneTexture;
 int _boneTextureBlockWidth;
@@ -14,12 +16,28 @@ uniform float frameIndex;
 uniform float preFrameIndex;
 uniform float transitionProgress;
 #else
-UNITY_INSTANCING_CBUFFER_START(Props)
+UNITY_INSTANCING_BUFFER_START(Props)
 	UNITY_DEFINE_INSTANCED_PROP(float, preFrameIndex)
+#define preFrameIndex_arr Props
 	UNITY_DEFINE_INSTANCED_PROP(float, frameIndex)
+#define frameIndex_arr Props
 	UNITY_DEFINE_INSTANCED_PROP(float, transitionProgress)
-UNITY_INSTANCING_CBUFFER_END
+#define transitionProgress_arr Props
+UNITY_INSTANCING_BUFFER_END(Props)
 #endif
+
+// [Unity] Remove uv2, color channels +++++
+struct appdata_custom
+{
+	float4 vertex : POSITION;
+	float4 tangent : TANGENT;
+	float3 normal : NORMAL;
+	float4 texcoord : TEXCOORD0;
+	float4 boneWeights : BLENDWEIGHTS;
+	int4 boneIndices : BLENDINDICES;
+	UNITY_VERTEX_INPUT_INSTANCE_ID
+};
+// +++++
 
 half4x4 loadMatFromTexture(uint frameIndex, uint boneIndex)
 {
@@ -55,18 +73,29 @@ half4x4 loadMatFromTexture(uint frameIndex, uint boneIndex)
 	return m;
 }
 
-half4 skinning(inout appdata_full v)
+// [Unity] Remove uv2, color channels -----
+//half4 skinning(inout appdata_full v)
+// -----
+// [Unity] Remove uv2, color channels +++++
+half4 skinning(inout appdata_custom v)
+// +++++
 {
-	fixed4 w = v.color;
-	half4 bone = half4(v.texcoord2.x, v.texcoord2.y, v.texcoord2.z, v.texcoord2.w);
+	// [Unity] Remove uv2, color channels -----
+	//fixed4 w = v.color;
+	//half4 bone = half4(v.texcoord2.x, v.texcoord2.y, v.texcoord2.z, v.texcoord2.w);
+	// -----
+	// [Unity] Remove uv2, color channels +++++
+	fixed4 w = v.boneWeights;
+	half4 bone = v.boneIndices;
+	// +++++
 #if (SHADER_TARGET < 30 || SHADER_API_GLES)
 	float curFrame = frameIndex;
 	float preAniFrame = preFrameIndex;
 	float progress = transitionProgress;
 #else
-	float curFrame = UNITY_ACCESS_INSTANCED_PROP(frameIndex);
-	float preAniFrame = UNITY_ACCESS_INSTANCED_PROP(preFrameIndex);
-	float progress = UNITY_ACCESS_INSTANCED_PROP(transitionProgress);
+	float curFrame = UNITY_ACCESS_INSTANCED_PROP(frameIndex_arr, frameIndex);
+	float preAniFrame = UNITY_ACCESS_INSTANCED_PROP(preFrameIndex_arr, preFrameIndex);
+	float progress = UNITY_ACCESS_INSTANCED_PROP(transitionProgress_arr, transitionProgress);
 #endif
 
 	//float curFrame = UNITY_ACCESS_INSTANCED_PROP(frameIndex);
@@ -95,21 +124,31 @@ half4 skinning(inout appdata_full v)
 
 	half4x4 localToWorldMatrixPreAni = loadMatFromTexture(preAniFrame, bone.x);
 	half4 localPosPreAni = mul(v.vertex, localToWorldMatrixPreAni);
-	localPos = lerp(localPos, localPosPreAni, (1.0f - progress) * (preAniFrame > 0.0f));
+	localPos = lerp(localPos, localPosPreAni, (1.0f - progress) * (preAniFrame < 0.0f));
 	return localPos;
 }
 
-half4 skinningShadow(inout appdata_full v)
+// [Unity] Remove uv2, color channels -----
+//half4 skinningShadow(inout appdata_full v)
+// -----
+// [Unity] Remove uv2, color channels +++++
+half4 skinningShadow(inout appdata_custom v)
+// +++++
 {
-	half4 bone = half4(v.texcoord2.x, v.texcoord2.y, v.texcoord2.z, v.texcoord2.w);
+	// [Unity] Remove uv2, color channels -----
+	//half4 bone = half4(v.texcoord2.x, v.texcoord2.y, v.texcoord2.z, v.texcoord2.w);
+	// -----
+	// [Unity] Remove uv2, color channels +++++
+	half4 bone = v.boneIndices;
+	// +++++
 #if (SHADER_TARGET < 30 || SHADER_API_GLES)
 	float curFrame = frameIndex;
 	float preAniFrame = preFrameIndex;
 	float progress = transitionProgress;
 #else
-	float curFrame = UNITY_ACCESS_INSTANCED_PROP(frameIndex);
-	float preAniFrame = UNITY_ACCESS_INSTANCED_PROP(preFrameIndex);
-	float progress = UNITY_ACCESS_INSTANCED_PROP(transitionProgress);
+	float curFrame = UNITY_ACCESS_INSTANCED_PROP(frameIndex_arr, frameIndex);
+	float preAniFrame = UNITY_ACCESS_INSTANCED_PROP(preFrameIndex_arr, preFrameIndex);
+	float progress = UNITY_ACCESS_INSTANCED_PROP(transitionProgress_arr, transitionProgress);
 #endif
 	int preFrame = curFrame;
 	int nextFrame = curFrame + 1.0f;
@@ -120,12 +159,13 @@ half4 skinningShadow(inout appdata_full v)
 	half4 localPos = lerp(localPosPre, localPosNext, curFrame - preFrame);
 	half4x4 localToWorldMatrixPreAni = loadMatFromTexture(preAniFrame, bone.x);
 	half4 localPosPreAni = mul(v.vertex, localToWorldMatrixPreAni);
-	localPos = lerp(localPos, localPosPreAni, (1.0f - progress) * (preAniFrame > 0.0f));
+	localPos = lerp(localPos, localPosPreAni, (1.0f - progress) * (preAniFrame < 0.0f));
 	//half4 localPos = v.vertex;
 	return localPos;
 }
 
-void vert(inout appdata_full v)
+//void vert(inout appdata_full v)
+void vert(inout appdata_custom v)
 {
 #ifdef UNITY_PASS_SHADOWCASTER
 	v.vertex = skinningShadow(v);
