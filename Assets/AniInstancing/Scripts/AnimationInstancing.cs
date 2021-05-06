@@ -702,7 +702,7 @@ namespace AnimationInstancing
         // -----
 
         // [Unity] Replace AnimationInstancing GameObjects with normal class objects +++++
-        public void CreateInstanceObject(GameObject aniEventListener)
+        public void CreateInstanceObject(System.Action<AnimationEvent> aniEventListener) 
         {
             var instancingObj = new AnimationInstancingObject();
             instancingObj.Start(this, aniEventListener);
@@ -830,7 +830,7 @@ namespace AnimationInstancing
         public RandomCharacterMgr.Data randomCharacterData;
         // +++++
 
-        public void Start(AnimationInstancing instancingPrefab, GameObject aniEventListener)
+        public void Start(AnimationInstancing instancingPrefab, System.Action<AnimationEvent> aniEventListener)
         {
             if (!AnimationInstancingMgr.Instance.UseInstancing)
             {
@@ -1215,6 +1215,11 @@ namespace AnimationInstancing
 
         private void UpdateAnimationEvent()
         {
+            if (aniEventListener == null)
+            {
+                return;
+            }
+
             AnimationInfo info = GetCurrentAnimationInfo();
             if (info == null)
                 return;
@@ -1240,7 +1245,7 @@ namespace AnimationInstancing
                 float time = curFrame / info.fps;
                 if (aniEvent.time <= time)
                 {
-                    aniEventListener?.SendMessage(aniEvent.function, aniEvent);
+                    aniEventListener(aniEvent);
                     aniEvent = null;
                 }
             }
@@ -1291,7 +1296,7 @@ namespace AnimationInstancing
         private float lodFrequencyCount = 0.0f;
 
         private AnimationEvent aniEvent = null;
-        private GameObject aniEventListener = null;
+        private System.Action<AnimationEvent> aniEventListener = null;
     }
     // +++++
 }
